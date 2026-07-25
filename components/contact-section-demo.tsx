@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
+import { useState } from "react";
 
 const contactInfo = [
   {
@@ -10,8 +11,8 @@ const contactInfo = [
   },
   {
     label: "Email",
-    value: "5dunitedbuilders@gmail.com",
-    href: "mailto:5dunitedbuilders@gmail.com",
+    value: "5Dunitedbuilders22@gmail.com",
+    href: "mailto:5Dunitedbuilders22@gmail.com",
   },
   {
     label: "Address",
@@ -20,7 +21,113 @@ const contactInfo = [
   },
 ];
 
+interface FormData {
+  name: string;
+  email: string;
+  subject: string;
+  mobile: string;
+  message: string;
+}
+
+interface FormErrors {
+  name?: string;
+  email?: string;
+  subject?: string;
+  mobile?: string;
+  message?: string;
+}
+
+const initialFormData: FormData = {
+  name: "",
+  email: "",
+  subject: "",
+  mobile: "",
+  message: "",
+};
+
+const inputClass =
+  "w-full rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-800 placeholder-neutral-400 outline-none transition-colors focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:placeholder-neutral-500 dark:focus:border-neutral-500 dark:focus:ring-neutral-700";
+
+const inputErrorClass =
+  "w-full rounded-xl border border-red-400 bg-red-50 px-4 py-2.5 text-sm text-neutral-800 placeholder-neutral-400 outline-none transition-colors focus:border-red-500 focus:ring-2 focus:ring-red-200 dark:border-red-600 dark:bg-red-950/20 dark:text-neutral-200 dark:placeholder-neutral-500 dark:focus:border-red-500 dark:focus:ring-red-800";
+
 export default function ContactSection() {
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [status, setStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+  const [statusMessage, setStatusMessage] = useState("");
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    const { id, value } = e.target;
+    setFormData((prev) => ({ ...prev, [id]: value }));
+    if (errors[id as keyof FormErrors]) {
+      setErrors((prev) => ({ ...prev, [id]: undefined }));
+    }
+  }
+
+  function validate(): boolean {
+    const newErrors: FormErrors = {};
+
+    if (formData.name.trim().length < 2) {
+      newErrors.name = "Name must be at least 2 characters.";
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email.trim())) {
+      newErrors.email = "Please enter a valid email address.";
+    }
+
+    if (formData.subject.trim().length < 2) {
+      newErrors.subject = "Subject must be at least 2 characters.";
+    }
+
+    const mobileRegex = /^\+?[\d\s\-().]{7,20}$/;
+    if (!mobileRegex.test(formData.mobile.trim())) {
+      newErrors.mobile = "Please enter a valid mobile number.";
+    }
+
+    if (formData.message.trim().length < 10) {
+      newErrors.message = "Message must be at least 10 characters.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setStatusMessage("");
+
+    if (!validate()) return;
+
+    setStatus("sending");
+
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setStatus("error");
+        setStatusMessage(data.message || "Unable to send your message. Please try again.");
+        if (data.errors) setErrors(data.errors);
+        return;
+      }
+
+      setStatus("success");
+      setStatusMessage(data.message || "Your message has been sent successfully.");
+      setFormData(initialFormData);
+      setErrors({});
+    } catch {
+      setStatus("error");
+      setStatusMessage("Unable to send your message. Please try again.");
+    }
+  }
+
   return (
     <section className="relative mx-auto max-w-7xl px-4 py-20 md:py-32">
       <div className="absolute inset-y-0 left-0 h-full w-px bg-neutral-200/80 dark:bg-neutral-800/80" />
@@ -100,40 +207,65 @@ export default function ContactSection() {
         </motion.div>
 
         <motion.form
+          onSubmit={handleSubmit}
           initial={{ opacity: 0, x: 20 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.3 }}
           className="space-y-5 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+          noValidate
         >
+          {status === "success" && (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400">
+              {statusMessage}
+            </div>
+          )}
+          {status === "error" && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400">
+              {statusMessage}
+            </div>
+          )}
+
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
               <label
                 htmlFor="name"
                 className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
               >
-                Name
+                Name <span className="text-red-500">*</span>
               </label>
               <input
                 id="name"
                 type="text"
                 placeholder="Your name"
-                className="w-full rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-800 placeholder-neutral-400 outline-none transition-colors focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:placeholder-neutral-500 dark:focus:border-neutral-500 dark:focus:ring-neutral-700"
+                autoComplete="name"
+                value={formData.name}
+                onChange={handleChange}
+                className={errors.name ? inputErrorClass : inputClass}
               />
+              {errors.name && (
+                <p className="mt-1 text-xs text-red-500">{errors.name}</p>
+              )}
             </div>
             <div>
               <label
                 htmlFor="email"
                 className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
               >
-                Email
+                Email <span className="text-red-500">*</span>
               </label>
               <input
                 id="email"
                 type="email"
                 placeholder="you@example.com"
-                className="w-full rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-800 placeholder-neutral-400 outline-none transition-colors focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:placeholder-neutral-500 dark:focus:border-neutral-500 dark:focus:ring-neutral-700"
+                autoComplete="email"
+                value={formData.email}
+                onChange={handleChange}
+                className={errors.email ? inputErrorClass : inputClass}
               />
+              {errors.email && (
+                <p className="mt-1 text-xs text-red-500">{errors.email}</p>
+              )}
             </div>
           </div>
           <div>
@@ -141,34 +273,67 @@ export default function ContactSection() {
               htmlFor="subject"
               className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
             >
-              Subject
+              Subject <span className="text-red-500">*</span>
             </label>
             <input
               id="subject"
               type="text"
               placeholder="How can we help?"
-              className="w-full rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-800 placeholder-neutral-400 outline-none transition-colors focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:placeholder-neutral-500 dark:focus:border-neutral-500 dark:focus:ring-neutral-700"
+              autoComplete="off"
+              value={formData.subject}
+              onChange={handleChange}
+              className={errors.subject ? inputErrorClass : inputClass}
             />
+            {errors.subject && (
+              <p className="mt-1 text-xs text-red-500">{errors.subject}</p>
+            )}
+          </div>
+          <div>
+            <label
+              htmlFor="mobile"
+              className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
+            >
+              Mobile Number <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="mobile"
+              type="tel"
+              placeholder="Your mobile number"
+              autoComplete="tel"
+              value={formData.mobile}
+              onChange={handleChange}
+              className={errors.mobile ? inputErrorClass : inputClass}
+            />
+            {errors.mobile && (
+              <p className="mt-1 text-xs text-red-500">{errors.mobile}</p>
+            )}
           </div>
           <div>
             <label
               htmlFor="message"
               className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
             >
-              Message
+              Message <span className="text-red-500">*</span>
             </label>
             <textarea
               id="message"
               rows={4}
               placeholder="Tell us about your project..."
-              className="w-full resize-none rounded-xl border border-neutral-300 bg-neutral-50 px-4 py-2.5 text-sm text-neutral-800 placeholder-neutral-400 outline-none transition-colors focus:border-neutral-400 focus:ring-2 focus:ring-neutral-200 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200 dark:placeholder-neutral-500 dark:focus:border-neutral-500 dark:focus:ring-neutral-700"
+              autoComplete="off"
+              value={formData.message}
+              onChange={handleChange}
+              className={`${errors.message ? inputErrorClass : inputClass} resize-none`}
             />
+            {errors.message && (
+              <p className="mt-1 text-xs text-red-500">{errors.message}</p>
+            )}
           </div>
           <button
             type="submit"
-            className="w-full rounded-xl bg-black px-6 py-3 font-medium text-white transition-all duration-300 hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+            disabled={status === "sending"}
+            className="w-full rounded-xl bg-black px-6 py-3 font-medium text-white transition-all duration-300 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-neutral-200 dark:disabled:opacity-60"
           >
-            Send Message
+            {status === "sending" ? "Sending..." : "Send Message"}
           </button>
         </motion.form>
       </div>
