@@ -29,7 +29,7 @@ export class RateLimitUnavailableError extends Error {
 function anonymize(value: string): string {
   if (!redisToken) {
     if (process.env.NODE_ENV === "production") {
-      throw new RateLimitUnavailableError();
+      console.warn("UPSTASH_REDIS_REST_TOKEN is not set — rate limiting is disabled.");
     }
 
     return "development";
@@ -68,7 +68,7 @@ async function checkIdentifier(
 ): Promise<ContactRateLimitResult> {
   if (!contactRateLimit) {
     if (process.env.NODE_ENV === "production") {
-      throw new RateLimitUnavailableError();
+      console.warn("UPSTASH_REDIS_REST_URL is not set — rate limiting is disabled.");
     }
 
     return {
