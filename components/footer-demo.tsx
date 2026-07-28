@@ -2,32 +2,35 @@ import Image from "next/image";
 import Link from "next/link";
 import logo from "@/public/logo.png";
 
-const footerLinks = [
+const footerLinks: Array<{
+  label: string;
+  links: Array<{ label: string; href?: string }>;
+}> = [
   {
     label: "Services",
     links: [
-      { label: "Residential Construction", href: "#" },
-      { label: "Commercial Construction", href: "#" },
-      { label: "Renovation & Remodeling", href: "#" },
-      { label: "Architectural Planning", href: "#" },
+      { label: "Residential Construction", href: "#projects" },
+      { label: "Commercial Construction", href: "#projects" },
+      { label: "Renovation & Remodeling", href: "#projects" },
+      { label: "Architectural Planning", href: "#projects" },
     ],
   },
   {
     label: "Company",
     links: [
-      { label: "About Us", href: "#" },
-      { label: "Our Projects", href: "#" },
-      { label: "Careers", href: "#" },
-      { label: "Contact", href: "#" },
+      { label: "About Us", href: "#about" },
+      { label: "Our Projects", href: "#projects" },
+      { label: "Careers", href: "#careers" },
+      { label: "Contact", href: "#contact" },
     ],
   },
   {
     label: "Support",
     links: [
-      { label: "FAQ", href: "#" },
-      { label: "Privacy Policy", href: "#" },
-      { label: "Terms of Service", href: "#" },
-      { label: "Sitemap", href: "#" },
+      { label: "FAQ", href: "#faq" },
+      { label: "Privacy Policy" },
+      { label: "Terms of Service" },
+      { label: "Sitemap", href: "/sitemap.xml" },
     ],
   },
 ];
@@ -52,18 +55,24 @@ export default function Footer() {
           </div>
           {footerLinks.map((group) => (
             <div key={group.label}>
-              <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
+              <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-neutral-800 dark:text-neutral-200">
                 {group.label}
-              </h4>
+              </h2>
               <ul className="space-y-3">
                 {group.links.map((link) => (
                   <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-neutral-500 transition-colors hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
-                    >
-                      {link.label}
-                    </Link>
+                    {link.href ? (
+                      <Link
+                        href={link.href}
+                        className="text-sm text-neutral-500 transition-colors hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
+                      >
+                        {link.label}
+                      </Link>
+                    ) : (
+                      <span className="text-sm text-neutral-500 transition-colors hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200">
+                        {link.label}
+                      </span>
+                    )}
                   </li>
                 ))}
               </ul>

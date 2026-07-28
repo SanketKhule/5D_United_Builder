@@ -68,7 +68,11 @@ const benefits = [
 
 export default function CareersSection() {
   return (
-    <section className="relative mx-auto max-w-7xl px-4 py-20 md:py-32">
+    <section
+      id="careers"
+      aria-labelledby="careers-heading"
+      className="relative mx-auto max-w-7xl scroll-mt-28 px-4 py-20 md:py-32"
+    >
       <div className="absolute inset-y-0 left-0 h-full w-px bg-neutral-200/80 dark:bg-neutral-800/80" />
       <div className="absolute inset-y-0 right-0 h-full w-px bg-neutral-200/80 dark:bg-neutral-800/80" />
 
@@ -82,7 +86,10 @@ export default function CareersSection() {
         <span className="mb-4 inline-block rounded-full bg-neutral-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
           Careers
         </span>
-        <h2 className="mb-6 text-3xl font-bold text-slate-700 md:text-5xl dark:text-slate-300">
+        <h2
+          id="careers-heading"
+          className="mb-6 text-3xl font-bold text-slate-700 md:text-5xl dark:text-slate-300"
+        >
           Join Our Team
         </h2>
         <p className="mx-auto max-w-2xl text-lg text-neutral-600 dark:text-neutral-400">
@@ -97,7 +104,7 @@ export default function CareersSection() {
         transition={{ duration: 0.6, delay: 0.2 }}
         className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3"
       >
-        {positions.map((position, index) => (
+        {positions.map((position) => (
           <div
             key={position.title}
             className="group rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
@@ -139,6 +146,7 @@ export default function CareersSection() {
             >
               <div className="mb-3 mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
                 <svg
+                  aria-hidden="true"
                   className="h-5 w-5 text-neutral-700 dark:text-neutral-300"
                   fill="none"
                   viewBox="0 0 24 24"

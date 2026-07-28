@@ -30,7 +30,11 @@ const values = [
 
 export default function AboutSection() {
   return (
-    <section className="relative mx-auto max-w-7xl px-4 py-20 md:py-32">
+    <section
+      id="about"
+      aria-labelledby="about-heading"
+      className="relative mx-auto max-w-7xl scroll-mt-28 px-4 py-20 md:py-32"
+    >
       <div className="absolute inset-y-0 left-0 h-full w-px bg-neutral-200/80 dark:bg-neutral-800/80" />
       <div className="absolute inset-y-0 right-0 h-full w-px bg-neutral-200/80 dark:bg-neutral-800/80" />
 
@@ -44,7 +48,10 @@ export default function AboutSection() {
         <span className="mb-4 inline-block rounded-full bg-neutral-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
           About Us
         </span>
-        <h2 className="mb-6 text-3xl font-bold text-slate-700 md:text-5xl dark:text-slate-300">
+        <h2
+          id="about-heading"
+          className="mb-6 text-3xl font-bold text-slate-700 md:text-5xl dark:text-slate-300"
+        >
           Building Trust Since 2000
         </h2>
         <p className="mx-auto max-w-2xl text-lg text-neutral-600 dark:text-neutral-400">
@@ -92,6 +99,7 @@ export default function AboutSection() {
             >
               <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
                 <svg
+                  aria-hidden="true"
                   className="h-5 w-5 text-neutral-700 dark:text-neutral-300"
                   fill="none"
                   viewBox="0 0 24 24"

@@ -1,14 +1,67 @@
 import nodemailer from "nodemailer";
+import { escape } from "html-escaper";
+import { z } from "zod";
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: Number(process.env.SMTP_PORT),
-  secure: process.env.SMTP_SECURE === "true",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
+const emailConfigSchema = z.object({
+  SMTP_HOST: z.string().trim().min(1).max(253),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65_535),
+  SMTP_SECURE: z.enum(["true", "false"]).default("false"),
+  SMTP_USER: z.email().max(254),
+  SMTP_PASS: z.string().min(1).max(1_024),
+  ADMIN_EMAIL: z.email().max(254),
+  COMPANY_NAME: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .refine((value) => !/[\r\n]/.test(value)),
 });
+
+type EmailConfig = z.infer<typeof emailConfigSchema>;
+
+let cachedConfig: EmailConfig | null = null;
+let cachedTransporter: ReturnType<typeof nodemailer.createTransport> | null =
+  null;
+
+function getEmailConfig(): EmailConfig {
+  if (cachedConfig) {
+    return cachedConfig;
+  }
+
+  const result = emailConfigSchema.safeParse(process.env);
+
+  if (!result.success) {
+    throw new Error("Email service is not configured.");
+  }
+
+  cachedConfig = result.data;
+  return cachedConfig;
+}
+
+function getTransporter() {
+  if (cachedTransporter) {
+    return cachedTransporter;
+  }
+
+  const config = getEmailConfig();
+
+  cachedTransporter = nodemailer.createTransport({
+    host: config.SMTP_HOST,
+    port: config.SMTP_PORT,
+    secure: config.SMTP_SECURE === "true",
+    auth: {
+      user: config.SMTP_USER,
+      pass: config.SMTP_PASS,
+    },
+    disableFileAccess: true,
+    disableUrlAccess: true,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
+  });
+
+  return cachedTransporter;
+}
 
 function adminEmailTemplate({
   name,
@@ -25,6 +78,13 @@ function adminEmailTemplate({
   message: string;
   submittedAt: string;
 }) {
+  const safeName = escape(name);
+  const safeEmail = escape(email);
+  const safeSubject = escape(subject);
+  const safeMobile = escape(mobile);
+  const safeMessage = escape(message);
+  const safeSubmittedAt = escape(submittedAt);
+
   return `
 <!DOCTYPE html>
 <html>
@@ -45,7 +105,7 @@ function adminEmailTemplate({
                 </svg>
               </div>
               <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">New Contact Message</h1>
-              <p style="margin:6px 0 0;color:#94a3b8;font-size:13px;">${submittedAt}</p>
+              <p style="margin:6px 0 0;color:#94a3b8;font-size:13px;">${safeSubmittedAt}</p>
             </td>
           </tr>
           <tr>
@@ -59,7 +119,7 @@ function adminEmailTemplate({
                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                             <tr>
                               <td width="100" style="color:#64748b;font-size:13px;font-weight:500;">Name</td>
-                              <td style="color:#1e293b;font-size:14px;font-weight:600;">${name}</td>
+                              <td style="color:#1e293b;font-size:14px;font-weight:600;">${safeName}</td>
                             </tr>
                           </table>
                         </td>
@@ -69,7 +129,7 @@ function adminEmailTemplate({
                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                             <tr>
                               <td width="100" style="color:#64748b;font-size:13px;font-weight:500;">Email</td>
-                              <td style="color:#1e293b;font-size:14px;"><a href="mailto:${email}" style="color:#3b82f6;text-decoration:none;font-weight:500;">${email}</a></td>
+                              <td style="color:#1e293b;font-size:14px;"><a href="mailto:${safeEmail}" style="color:#3b82f6;text-decoration:none;font-weight:500;">${safeEmail}</a></td>
                             </tr>
                           </table>
                         </td>
@@ -79,7 +139,7 @@ function adminEmailTemplate({
                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                             <tr>
                               <td width="100" style="color:#64748b;font-size:13px;font-weight:500;">Subject</td>
-                              <td style="color:#1e293b;font-size:14px;font-weight:600;">${subject}</td>
+                              <td style="color:#1e293b;font-size:14px;font-weight:600;">${safeSubject}</td>
                             </tr>
                           </table>
                         </td>
@@ -89,7 +149,7 @@ function adminEmailTemplate({
                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                             <tr>
                               <td width="100" style="color:#64748b;font-size:13px;font-weight:500;">Mobile</td>
-                              <td style="color:#1e293b;font-size:14px;"><a href="tel:${mobile}" style="color:#3b82f6;text-decoration:none;font-weight:500;">${mobile}</a></td>
+                              <td style="color:#1e293b;font-size:14px;"><a href="tel:${safeMobile}" style="color:#3b82f6;text-decoration:none;font-weight:500;">${safeMobile}</a></td>
                             </tr>
                           </table>
                         </td>
@@ -101,7 +161,7 @@ function adminEmailTemplate({
                   <td style="padding-top:24px;">
                     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px;">
                       <p style="margin:0 0 8px;color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;">Message</p>
-                      <p style="margin:0;color:#1e293b;font-size:14px;line-height:1.7;">${message}</p>
+                      <p style="margin:0;color:#1e293b;font-size:14px;line-height:1.7;">${safeMessage}</p>
                     </div>
                   </td>
                 </tr>
@@ -134,6 +194,12 @@ function thankYouEmailTemplate({
   message: string;
   companyName: string;
 }) {
+  const safeName = escape(name);
+  const safeSubject = escape(subject);
+  const safeMobile = escape(mobile);
+  const safeMessage = escape(message);
+  const safeCompanyName = escape(companyName);
+
   return `
 <!DOCTYPE html>
 <html>
@@ -159,8 +225,8 @@ function thankYouEmailTemplate({
           </tr>
           <tr>
             <td style="padding:32px 40px;">
-              <p style="margin:0 0 12px;color:#334155;font-size:15px;line-height:1.7;">Hello <strong>${name}</strong>,</p>
-              <p style="margin:0 0 12px;color:#475569;font-size:15px;line-height:1.7;">Thank you for reaching out to us. We have successfully received your message regarding &ldquo;<strong style="color:#1e293b;">${subject}</strong>&rdquo;.</p>
+              <p style="margin:0 0 12px;color:#334155;font-size:15px;line-height:1.7;">Hello <strong>${safeName}</strong>,</p>
+              <p style="margin:0 0 12px;color:#475569;font-size:15px;line-height:1.7;">Thank you for reaching out to us. We have successfully received your message regarding &ldquo;<strong style="color:#1e293b;">${safeSubject}</strong>&rdquo;.</p>
               <p style="margin:0 0 28px;color:#475569;font-size:15px;line-height:1.7;">Our team will review your enquiry and get back to you as soon as possible.</p>
 
               <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:28px;">
@@ -168,17 +234,17 @@ function thankYouEmailTemplate({
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                   <tr>
                     <td width="110" style="padding:5px 0;color:#64748b;font-size:13px;">Mobile Number</td>
-                    <td style="padding:5px 0;color:#1e293b;font-size:14px;font-weight:500;">${mobile}</td>
+                    <td style="padding:5px 0;color:#1e293b;font-size:14px;font-weight:500;">${safeMobile}</td>
                   </tr>
                   <tr>
                     <td width="110" style="padding:5px 0;color:#64748b;font-size:13px;vertical-align:top;">Message</td>
-                    <td style="padding:5px 0;color:#1e293b;font-size:14px;font-weight:500;line-height:1.6;">${message}</td>
+                    <td style="padding:5px 0;color:#1e293b;font-size:14px;font-weight:500;line-height:1.6;">${safeMessage}</td>
                   </tr>
                 </table>
               </div>
 
               <p style="margin:0 0 4px;color:#334155;font-size:15px;line-height:1.7;">Best regards,</p>
-              <p style="margin:0;color:#1e293b;font-size:16px;font-weight:700;">${companyName}</p>
+              <p style="margin:0;color:#1e293b;font-size:16px;font-weight:700;">${safeCompanyName}</p>
             </td>
           </tr>
           <tr>
@@ -207,6 +273,8 @@ export async function sendAdminEmail({
   mobile: string;
   message: string;
 }) {
+  const config = getEmailConfig();
+  const transporter = getTransporter();
   const submittedAt = new Date().toLocaleString("en-US", {
     weekday: "long",
     year: "numeric",
@@ -218,9 +286,15 @@ export async function sendAdminEmail({
   });
 
   await transporter.sendMail({
-    from: `"${process.env.COMPANY_NAME}" <${process.env.SMTP_USER}>`,
-    replyTo: email,
-    to: process.env.ADMIN_EMAIL,
+    from: {
+      name: config.COMPANY_NAME,
+      address: config.SMTP_USER,
+    },
+    replyTo: {
+      name,
+      address: email,
+    },
+    to: config.ADMIN_EMAIL,
     subject: `New Contact Message: ${subject}`,
     html: adminEmailTemplate({ name, email, subject, mobile, message, submittedAt }),
   });
@@ -239,10 +313,22 @@ export async function sendThankYouEmail({
   mobile: string;
   message: string;
 }) {
+  const config = getEmailConfig();
+  const transporter = getTransporter();
+
   await transporter.sendMail({
-    from: `"${process.env.COMPANY_NAME}" <${process.env.SMTP_USER}>`,
+    from: {
+      name: config.COMPANY_NAME,
+      address: config.SMTP_USER,
+    },
     to: email,
     subject: "Thank You for Contacting Us",
-    html: thankYouEmailTemplate({ name, subject, mobile, message, companyName: process.env.COMPANY_NAME ?? "" }),
+    html: thankYouEmailTemplate({
+      name,
+      subject,
+      mobile,
+      message,
+      companyName: config.COMPANY_NAME,
+    }),
   });
 }

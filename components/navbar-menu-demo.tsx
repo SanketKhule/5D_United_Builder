@@ -10,10 +10,10 @@ const navigation = [
   {
     label: "Services",
     links: [
-      { label: "Residential Construction",href: "/services/residential-construction" },
-      { label: "Commercial Construction", href: "/services/commercial-construction" },
-      { label: "Renovation & Remodeling", href: "/services/renovation-remodeling" },
-      { label: "Architectural Planning", href: "/services/architectural-planning" },
+      { label: "Residential Construction", href: "#projects" },
+      { label: "Commercial Construction", href: "#projects" },
+      { label: "Renovation & Remodeling", href: "#projects" },
+      { label: "Architectural Planning", href: "#projects" },
     ],
   },
   {
@@ -81,7 +81,7 @@ export default function NavbarDemo() {
               src={logo}
               alt="5D United Builders"
               fill
-              priority
+              preload
               sizes="(min-width: 640px) 112px, 96px"
               className=" opacity-100 object-cover"
             />
@@ -102,6 +102,7 @@ export default function NavbarDemo() {
                     type="button"
                     aria-expanded={isOpen}
                     aria-haspopup="true"
+                    aria-controls={`desktop-menu-${item.label.toLowerCase().replaceAll(" ", "-")}`}
                     className="flex items-center gap-1 rounded-full px-4 py-2 text-sm font-medium text-neutral-700 transition-colors hover:bg-blue-50 hover:text-blue-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700 dark:text-neutral-200 dark:hover:bg-white/10 dark:hover:text-white"
                     onClick={() =>
                       setActiveMenu(isOpen ? null : item.label)
@@ -119,7 +120,10 @@ export default function NavbarDemo() {
 
                   {isOpen && (
                     <div className="absolute right-0 top-[calc(100%-0.35rem)] min-w-64 pt-3">
-                      <div className="rounded-2xl border border-neutral-200/80 bg-white/95 p-2 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95">
+                      <div
+                        id={`desktop-menu-${item.label.toLowerCase().replaceAll(" ", "-")}`}
+                        className="rounded-2xl border border-neutral-200/80 bg-white/95 p-2 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-neutral-950/95"
+                      >
                         {item.links.map((link) => (
                           <Link
                             key={link.label}

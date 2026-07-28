@@ -1,109 +1,287 @@
 import { sendAdminEmail, sendThankYouEmail } from "@/lib/email";
+import {
+  contactSchema,
+  formatContactErrors,
+} from "@/lib/contact-validation";
+import {
+  checkContactEmailLimit,
+  checkContactIpLimit,
+  RateLimitUnavailableError,
+  type ContactRateLimitResult,
+} from "@/lib/rate-limit";
+import { getTrustedSiteOrigins } from "@/lib/site";
 
-interface ContactBody {
-  name: string;
-  email: string;
-  subject: string;
-  mobile: string;
+export const runtime = "nodejs";
+
+const MAX_REQUEST_BYTES = 12_000;
+const JSON_CONTENT_TYPE = "application/json";
+
+interface JsonErrorBody {
+  success: false;
   message: string;
+  errors?: Record<string, string>;
 }
 
-function sanitize(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;");
+function jsonResponse(
+  body: JsonErrorBody | { success: true; message: string },
+  status: number,
+  headers?: HeadersInit,
+): Response {
+  return Response.json(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      ...headers,
+    },
+  });
 }
 
-function validate(body: unknown): { valid: boolean; errors: Record<string, string>; data?: ContactBody } {
-  const errors: Record<string, string> = {};
-  const contact: Record<string, unknown> = {};
+function isTrustedOrigin(request: Request): boolean {
+  const originHeader = request.headers.get("origin");
 
-  if (!body || typeof body !== "object") {
-    return { valid: false, errors: { _form: "Invalid request body." } };
+  if (!originHeader) {
+    return false;
   }
 
-  const data = body as Record<string, unknown>;
+  try {
+    const requestOrigin = new URL(originHeader).origin;
+    const trustedOrigins = getTrustedSiteOrigins();
 
-  const nameRaw = data.name;
-  const emailRaw = data.email;
-  const subjectRaw = data.subject;
-  const mobileRaw = data.mobile;
-  const messageRaw = data.message;
+    if (trustedOrigins.has(requestOrigin)) {
+      return true;
+    }
 
-  if (typeof nameRaw === "string" && nameRaw.trim().length >= 2) {
-    contact.name = sanitize(nameRaw.trim());
-  } else {
-    errors.name = "Name must be at least 2 characters.";
+    return (
+      process.env.NODE_ENV !== "production" &&
+      requestOrigin === new URL(request.url).origin
+    );
+  } catch {
+    return false;
   }
+}
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (typeof emailRaw === "string" && emailRegex.test(emailRaw.trim())) {
-    contact.email = sanitize(emailRaw.trim());
-  } else {
-    errors.email = "Please enter a valid email address.";
-  }
-
-  if (typeof subjectRaw === "string" && subjectRaw.trim().length >= 2) {
-    contact.subject = sanitize(subjectRaw.trim());
-  } else {
-    errors.subject = "Subject must be at least 2 characters.";
-  }
-
-  const mobileRegex = /^\+?[\d\s\-().]{7,20}$/;
-  if (typeof mobileRaw === "string" && mobileRegex.test(mobileRaw.trim())) {
-    contact.mobile = sanitize(mobileRaw.trim());
-  } else {
-    errors.mobile = "Please enter a valid mobile number.";
-  }
-
-  if (typeof messageRaw === "string" && messageRaw.trim().length >= 10) {
-    contact.message = sanitize(messageRaw.trim());
-  } else {
-    errors.message = "Message must be at least 10 characters.";
-  }
-
-  if (Object.keys(errors).length > 0) {
-    return { valid: false, errors };
-  }
-
+function rateLimitHeaders(result: ContactRateLimitResult): HeadersInit {
   return {
-    valid: true,
-    errors: {},
-    data: contact as unknown as ContactBody,
+    "RateLimit-Limit": String(result.limit),
+    "RateLimit-Remaining": String(Math.max(0, result.remaining)),
+    "RateLimit-Reset": String(Math.ceil(result.reset / 1000)),
   };
 }
 
-export async function POST(request: Request) {
-  try {
-    const body: unknown = await request.json();
-    const result = validate(body);
+function rateLimitedResponse(result: ContactRateLimitResult): Response {
+  const retryAfter = Math.max(1, Math.ceil((result.reset - Date.now()) / 1000));
 
-    if (!result.valid || !result.data) {
-      return Response.json(
-        { success: false, message: "Validation failed. Please check your inputs.", errors: result.errors },
-        { status: 400 }
+  return jsonResponse(
+    {
+      success: false,
+      message: "Too many requests. Please wait before trying again.",
+    },
+    429,
+    {
+      ...rateLimitHeaders(result),
+      "Retry-After": String(retryAfter),
+    },
+  );
+}
+
+async function readBoundedJson(request: Request): Promise<unknown> {
+  const contentLengthHeader = request.headers.get("content-length");
+
+  if (contentLengthHeader) {
+    const contentLength = Number(contentLengthHeader);
+
+    if (
+      !Number.isSafeInteger(contentLength) ||
+      contentLength < 0 ||
+      contentLength > MAX_REQUEST_BYTES
+    ) {
+      throw new RangeError("Request body is too large.");
+    }
+  }
+
+  if (!request.body) {
+    throw new SyntaxError("Request body is missing.");
+  }
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) {
+        break;
+      }
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > MAX_REQUEST_BYTES) {
+        await reader.cancel();
+        throw new RangeError("Request body is too large.");
+      }
+
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(totalBytes);
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  const text = new TextDecoder("utf-8", { fatal: true }).decode(body);
+  return JSON.parse(text) as unknown;
+}
+
+function logDeliveryFailure(error: unknown): void {
+  if (process.env.NODE_ENV === "development") {
+    console.error("Contact email delivery failed:", error);
+    return;
+  }
+
+  console.error("Contact email delivery failed.");
+}
+
+export async function POST(request: Request): Promise<Response> {
+  const contentType = request.headers.get("content-type")?.toLowerCase() ?? "";
+  const mediaType = contentType.split(";", 1)[0]?.trim();
+
+  if (mediaType !== JSON_CONTENT_TYPE) {
+    return jsonResponse(
+      {
+        success: false,
+        message: "The request must use JSON.",
+      },
+      415,
+    );
+  }
+
+  if (!isTrustedOrigin(request)) {
+    return jsonResponse(
+      {
+        success: false,
+        message: "The request origin is not allowed.",
+      },
+      403,
+      { Vary: "Origin" },
+    );
+  }
+
+  try {
+    const ipLimit = await checkContactIpLimit(request);
+
+    if (!ipLimit.success) {
+      return rateLimitedResponse(ipLimit);
+    }
+
+    let body: unknown;
+
+    try {
+      body = await readBoundedJson(request);
+    } catch (error) {
+      if (error instanceof RangeError) {
+        return jsonResponse(
+          {
+            success: false,
+            message: "The request is too large.",
+          },
+          413,
+          rateLimitHeaders(ipLimit),
+        );
+      }
+
+      return jsonResponse(
+        {
+          success: false,
+          message: "The request body is not valid JSON.",
+        },
+        400,
+        rateLimitHeaders(ipLimit),
       );
     }
 
-    const { name, email, subject, mobile, message } = result.data;
+    const result = contactSchema.safeParse(body);
 
-    await Promise.all([
-      sendAdminEmail({ name, email, subject, mobile, message }),
-      sendThankYouEmail({ name, email, subject, mobile, message }),
-    ]);
+    if (!result.success) {
+      return jsonResponse(
+        {
+          success: false,
+          message: "Validation failed. Please check your inputs.",
+          errors: formatContactErrors(result.error),
+        },
+        400,
+        rateLimitHeaders(ipLimit),
+      );
+    }
 
-    return Response.json(
-      { success: true, message: "Your message has been sent successfully." },
-      { status: 200 }
+    const { name, email, subject, mobile, message, website } = result.data;
+
+    if (website) {
+      return jsonResponse(
+        {
+          success: true,
+          message: "Your message has been sent successfully.",
+        },
+        200,
+        rateLimitHeaders(ipLimit),
+      );
+    }
+
+    const emailLimit = await checkContactEmailLimit(email);
+
+    if (!emailLimit.success) {
+      return rateLimitedResponse(emailLimit);
+    }
+
+    try {
+      await Promise.all([
+        sendAdminEmail({ name, email, subject, mobile, message }),
+        sendThankYouEmail({ name, email, subject, mobile, message }),
+      ]);
+    } catch (error) {
+      logDeliveryFailure(error);
+
+      return jsonResponse(
+        {
+          success: false,
+          message: "Unable to send your message. Please try again.",
+        },
+        502,
+        rateLimitHeaders(emailLimit),
+      );
+    }
+
+    return jsonResponse(
+      {
+        success: true,
+        message: "Your message has been sent successfully.",
+      },
+      200,
+      rateLimitHeaders(emailLimit),
     );
   } catch (error) {
-    console.error("Contact form error:", error);
-    return Response.json(
-      { success: false, message: "Unable to send your message. Please try again." },
-      { status: 500 }
+    if (error instanceof RateLimitUnavailableError) {
+      console.error("Contact rate limiting is unavailable.");
+    } else if (process.env.NODE_ENV === "development") {
+      console.error("Contact request failed:", error);
+    } else {
+      console.error("Contact request failed.");
+    }
+
+    return jsonResponse(
+      {
+        success: false,
+        message: "The contact service is temporarily unavailable.",
+      },
+      503,
     );
   }
 }

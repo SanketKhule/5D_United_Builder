@@ -17,7 +17,7 @@ const contactInfo = [
   {
     label: "Address",
     value: "Lakshmi complex, 70, Tisayanvilai main road, Iraipuvari-627108",
-    href: "#",
+    href: "https://www.google.com/maps/search/?api=1&query=Lakshmi%20complex%2C%2070%2C%20Tisayanvilai%20main%20road%2C%20Iraipuvari%20627108",
   },
 ];
 
@@ -27,6 +27,7 @@ interface FormData {
   subject: string;
   mobile: string;
   message: string;
+  website: string;
 }
 
 interface FormErrors {
@@ -43,6 +44,7 @@ const initialFormData: FormData = {
   subject: "",
   mobile: "",
   message: "",
+  website: "",
 };
 
 const inputClass =
@@ -129,7 +131,11 @@ export default function ContactSection() {
   }
 
   return (
-    <section className="relative mx-auto max-w-7xl px-4 py-20 md:py-32">
+    <section
+      id="contact"
+      aria-labelledby="contact-heading"
+      className="relative mx-auto max-w-7xl scroll-mt-28 px-4 py-20 md:py-32"
+    >
       <div className="absolute inset-y-0 left-0 h-full w-px bg-neutral-200/80 dark:bg-neutral-800/80" />
       <div className="absolute inset-y-0 right-0 h-full w-px bg-neutral-200/80 dark:bg-neutral-800/80" />
 
@@ -143,7 +149,10 @@ export default function ContactSection() {
         <span className="mb-4 inline-block rounded-full bg-neutral-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
           Get in Touch
         </span>
-        <h2 className="mb-6 text-3xl font-bold text-slate-700 md:text-5xl dark:text-slate-300">
+        <h2
+          id="contact-heading"
+          className="mb-6 text-3xl font-bold text-slate-700 md:text-5xl dark:text-slate-300"
+        >
           Let&apos;s Build Together
         </h2>
         <p className="mx-auto max-w-2xl text-lg text-neutral-600 dark:text-neutral-400">
@@ -163,10 +172,13 @@ export default function ContactSection() {
             <a
               key={info.label}
               href={info.href}
+              target={info.label === "Address" ? "_blank" : undefined}
+              rel={info.label === "Address" ? "noopener noreferrer" : undefined}
               className="flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-neutral-100 dark:bg-neutral-800">
                 <svg
+                  aria-hidden="true"
                   className="h-5 w-5 text-neutral-600 dark:text-neutral-300"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -216,15 +228,38 @@ export default function ContactSection() {
           noValidate
         >
           {status === "success" && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400">
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-400"
+            >
               {statusMessage}
             </div>
           )}
           {status === "error" && (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400">
+            <div
+              role="alert"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-400"
+            >
               {statusMessage}
             </div>
           )}
+
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-[10000px] h-px w-px overflow-hidden"
+          >
+            <label htmlFor="website">Website</label>
+            <input
+              id="website"
+              name="website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={formData.website}
+              onChange={handleChange}
+            />
+          </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
             <div>
@@ -232,19 +267,26 @@ export default function ContactSection() {
                 htmlFor="name"
                 className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
               >
-                Name <span className="text-red-500">*</span>
+                Name <span aria-hidden="true" className="text-red-500">*</span>
               </label>
               <input
                 id="name"
+                name="name"
                 type="text"
                 placeholder="Your name"
                 autoComplete="name"
+                maxLength={80}
+                required
+                aria-invalid={Boolean(errors.name)}
+                aria-describedby={errors.name ? "name-error" : undefined}
                 value={formData.name}
                 onChange={handleChange}
                 className={errors.name ? inputErrorClass : inputClass}
               />
               {errors.name && (
-                <p className="mt-1 text-xs text-red-500">{errors.name}</p>
+                <p id="name-error" className="mt-1 text-xs text-red-500">
+                  {errors.name}
+                </p>
               )}
             </div>
             <div>
@@ -252,19 +294,27 @@ export default function ContactSection() {
                 htmlFor="email"
                 className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
               >
-                Email <span className="text-red-500">*</span>
+                Email <span aria-hidden="true" className="text-red-500">*</span>
               </label>
               <input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="you@example.com"
                 autoComplete="email"
+                inputMode="email"
+                maxLength={254}
+                required
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? "email-error" : undefined}
                 value={formData.email}
                 onChange={handleChange}
                 className={errors.email ? inputErrorClass : inputClass}
               />
               {errors.email && (
-                <p className="mt-1 text-xs text-red-500">{errors.email}</p>
+                <p id="email-error" className="mt-1 text-xs text-red-500">
+                  {errors.email}
+                </p>
               )}
             </div>
           </div>
@@ -273,19 +323,26 @@ export default function ContactSection() {
               htmlFor="subject"
               className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
             >
-              Subject <span className="text-red-500">*</span>
+              Subject <span aria-hidden="true" className="text-red-500">*</span>
             </label>
             <input
               id="subject"
+              name="subject"
               type="text"
               placeholder="How can we help?"
               autoComplete="off"
+              maxLength={120}
+              required
+              aria-invalid={Boolean(errors.subject)}
+              aria-describedby={errors.subject ? "subject-error" : undefined}
               value={formData.subject}
               onChange={handleChange}
               className={errors.subject ? inputErrorClass : inputClass}
             />
             {errors.subject && (
-              <p className="mt-1 text-xs text-red-500">{errors.subject}</p>
+              <p id="subject-error" className="mt-1 text-xs text-red-500">
+                {errors.subject}
+              </p>
             )}
           </div>
           <div>
@@ -293,19 +350,27 @@ export default function ContactSection() {
               htmlFor="mobile"
               className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
             >
-              Mobile Number <span className="text-red-500">*</span>
+              Mobile Number <span aria-hidden="true" className="text-red-500">*</span>
             </label>
             <input
               id="mobile"
+              name="mobile"
               type="tel"
               placeholder="Your mobile number"
               autoComplete="tel"
+              inputMode="tel"
+              maxLength={20}
+              required
+              aria-invalid={Boolean(errors.mobile)}
+              aria-describedby={errors.mobile ? "mobile-error" : undefined}
               value={formData.mobile}
               onChange={handleChange}
               className={errors.mobile ? inputErrorClass : inputClass}
             />
             {errors.mobile && (
-              <p className="mt-1 text-xs text-red-500">{errors.mobile}</p>
+              <p id="mobile-error" className="mt-1 text-xs text-red-500">
+                {errors.mobile}
+              </p>
             )}
           </div>
           <div>
@@ -313,19 +378,26 @@ export default function ContactSection() {
               htmlFor="message"
               className="mb-1 block text-sm font-medium text-neutral-700 dark:text-neutral-300"
             >
-              Message <span className="text-red-500">*</span>
+              Message <span aria-hidden="true" className="text-red-500">*</span>
             </label>
             <textarea
               id="message"
+              name="message"
               rows={4}
               placeholder="Tell us about your project..."
               autoComplete="off"
+              maxLength={2000}
+              required
+              aria-invalid={Boolean(errors.message)}
+              aria-describedby={errors.message ? "message-error" : undefined}
               value={formData.message}
               onChange={handleChange}
               className={`${errors.message ? inputErrorClass : inputClass} resize-none`}
             />
             {errors.message && (
-              <p className="mt-1 text-xs text-red-500">{errors.message}</p>
+              <p id="message-error" className="mt-1 text-xs text-red-500">
+                {errors.message}
+              </p>
             )}
           </div>
           <button

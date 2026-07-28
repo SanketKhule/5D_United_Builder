@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "motion/react";
 
 const projects = [
@@ -61,7 +62,11 @@ const projects = [
 
 export default function ProjectSection() {
   return (
-    <section className="relative mx-auto max-w-7xl px-4 py-20 md:py-32">
+    <section
+      id="projects"
+      aria-labelledby="projects-heading"
+      className="relative mx-auto max-w-7xl scroll-mt-28 px-4 py-20 md:py-32"
+    >
       <div className="absolute inset-y-0 left-0 h-full w-px bg-neutral-200/80 dark:bg-neutral-800/80" />
       <div className="absolute inset-y-0 right-0 h-full w-px bg-neutral-200/80 dark:bg-neutral-800/80" />
 
@@ -75,7 +80,10 @@ export default function ProjectSection() {
         <span className="mb-4 inline-block rounded-full bg-neutral-100 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
           Our Projects
         </span>
-        <h2 className="mb-6 text-3xl font-bold text-slate-700 md:text-5xl dark:text-slate-300">
+        <h2
+          id="projects-heading"
+          className="mb-6 text-3xl font-bold text-slate-700 md:text-5xl dark:text-slate-300"
+        >
           Featured Work
         </h2>
         <p className="mx-auto max-w-2xl text-lg text-neutral-600 dark:text-neutral-400">
@@ -94,9 +102,11 @@ export default function ProjectSection() {
             className="group overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
           >
             <div className="relative aspect-[3/2] overflow-hidden">
-              <img
+              <Image
                 src={project.image}
                 alt={project.title}
+                fill
+                sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
