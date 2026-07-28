@@ -83,6 +83,9 @@ export default function Footer() {
           <p className="text-center text-sm text-neutral-400 dark:text-neutral-500">
             &copy; {new Date().getFullYear()} 5D United Builders. All rights reserved.
           </p>
+          <p className="mt-2 text-center text-xs text-neutral-400 dark:text-neutral-600">
+            Designed by <span className="font-medium text-neutral-500 dark:text-neutral-400">Sanket Khule</span>
+          </p>
         </div>
       </div>
     </footer>
